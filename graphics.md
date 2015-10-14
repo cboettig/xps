@@ -15,7 +15,7 @@ Monitors tested:
 - **U2414H** (24" Ultrasharp): `glxgears` running on 24" Dell at 1920x1080 60Hz over DisplayPort cable gets about 60 FPS. `300 frames in 5.0 seconds = 59.991 FPS`
   - Same whether or not DP 1.2 has been enabled on monitor menu. 
   - Same whether or not native screen also on.  
-  - 
+
 - **P2715Q** (27" 4K): 3840x2160 over displayport connection `glxgears` reports 60 FPS (with native screen off).
   - With both native monitor and 27" on, the speed reported is higher, ~120 FPS, but actually looks less smooth
   - the 27", 4K Dell doesn't have the option in the menu to enable displayport 1.2.
