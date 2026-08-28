@@ -12,7 +12,7 @@ Configuration notes for the XPS 14, as distinct from the XPS 13 notes in the rep
 | CPU | Intel Core Ultra X7 358H |
 | BIOS | 1.8.2 (2026-05-22) |
 | OS | Ubuntu 24.04.4 LTS |
-| Kernel | 6.17.0-1030-oem |
+| Kernel | 6.17.0-1032-oem (OEM, GRUB default) / 7.0.0-30-generic (both work) |
 
 Identifying info came from:
 
@@ -26,4 +26,5 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
 
 ## Contents
 
-- [camera.md](camera.md) — built-in camera is upside down out of the box
+- [camera.md](camera.md) — built-in camera is upside down
+- [kernel.md](kernel.md) — OEM vs generic kernel, the module packages the camera needs on generic, and notes on 26.04
