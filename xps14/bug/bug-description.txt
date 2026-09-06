@@ -1,0 +1,120 @@
+The built-in MIPI camera (Intel IPU7 / ov08x40) stops working on
+7.0.0-31-generic. It works on 7.0.0-30-generic with identical userspace and
+identical module packages, so this is a regression between two ABIs of the
+same HWE series.
+
+== Regression window ==
+
+  works:  linux-image-7.0.0-30-generic  7.0.0-30.30~24.04.1
+  broken: linux-image-7.0.0-31-generic  7.0.0-31.31~24.04.1
+  works:  linux-image-6.17.0-1032-oem   6.17.0-1032.32
+
+== What happens ==
+
+ISYS probes correctly and the sensor registers, then the PSYS auxiliary
+device fails because its bus was never registered:
+
+  intel-ipu7 0000:00:05.0: Found supported sensor OVTI08F4:00
+  intel-ipu7 0000:00:05.0: Connected 1 cameras
+  intel_ipu7_isys.isys intel_ipu7.isys.40: bind ov08x40 4-0036 nlanes is 2 port is 0
+  intel_ipu7_isys.isys intel_ipu7.isys.40: All sensor registration completed.
+  bus_add_device: cannot add device 'ipu7-psys0' to unregistered bus 'intel-ipu7-psys'
+  intel-ipu7-psys ipu7-psys0: psys device_register failed
+  intel_ipu7_psys.psys intel_ipu7.psys.40: probe with driver intel_ipu7_psys.psys failed with error -22
+
+On 7.0.0-30-generic the same point in the log instead reads:
+
+  intel_ipu7_psys.psys intel_ipu7.psys.40: IPU psys probe done.
+
+Result: no /dev/ipu7-psys0, so the camera HAL (icamerasrc / libcamhal) has no
+processing device and delivers no frames.
+
+Note that /dev/video0 is a v4l2loopback node fed by v4l2-relayd, so it still
+opens and still dequeues a single placeholder frame even when the camera is
+completely dead. Testing with a single frame grab gives a false pass; the
+frame sizes have to be compared across several frames.
+
+== Likely cause ==
+
+The in-tree driver changed between the two ABIs while the out-of-tree psys
+module did not, so the auxiliary device appears to be probed before the psys
+module has registered its bus:
+
+  module           supplied by                    -30 srcversion              -31 srcversion
+  intel_ipu7       linux-modules-*-generic        D1E673C7A7AD4A1A400F034     121F0453F296C89ED5B8418   CHANGED
+  intel_ipu7_isys  linux-modules-*-generic        1C08CDBA2483EEF5519768A     1C08CDBA2483EEF5519768A   same
+  intel_ipu7_psys  linux-modules-ipu7-*-generic   32D18897D60F8FF10DA6F05     32D18897D60F8FF10DA6F05   same
+
+Possibly relevant: Ubuntu 26.04 (resolute) ships a rebuilt psys module for
+this same 7.0.0-31 ABI with a different srcversion
+(0DB161AA0DFA3D4C864A551, about 7.8 KB larger), in
+linux-main-modules-ipu7-7.0.0-31-generic 7.0.0-31.31+2. Noble's
+linux-modules-ipu7-7.0.0-31-generic (7.0.0-31.31~24.04.1) still carries the
+older 32D18897 source. If that rebuild is the fix, backporting it to the
+noble HWE series would likely resolve this.
+
+I could not verify that directly: the resolute module has matching vermagic
+but different symbol CRCs, so it is rejected on the noble kernel with
+"intel_ipu7_psys: disagrees about version of symbol module_layout".
+
+== Second issue: NULL deref on driver unbind ==
+
+Unbinding the PCI device to force a re-probe oopses on 7.0.0-31-generic:
+
+  echo 0000:00:05.0 > /sys/bus/pci/drivers/intel-ipu7/unbind
+
+  BUG: kernel NULL pointer dereference, address: 0000000000000008
+  Oops: Oops: 0002 [#1] SMP NOPTI
+  RIP: 0010:__raw_spin_lock_irqsave+0x27/0x80
+  Call Trace:
+   ipu7_dma_free+0x4e/0x220        [intel_ipu7]
+   isys_remove+0x52/0x110          [intel_ipu7_isys]
+   ipu7_bus_del_devices+0xac/0x100 [intel_ipu7]
+   ipu7_pci_remove+0xa0/0x180      [intel_ipu7]
+  note: <task> exited with irqs disabled
+  note: <task> exited with preempt_count 1
+
+The writing task dies with irqs disabled and a leaked preempt_count; shutdown
+then hangs and the machine needs SysRq REISUB. This looks like a distinct
+defect from the probe failure and may deserve its own bug -- it is included
+here because it is the same driver and was hit while investigating the above.
+Happy to split it out if preferred.
+
+== Hardware ==
+
+Dell XPS 14 DA14260 (system SKU 0DB9, board 0H2HX9), BIOS 1.8.2
+Intel Core Ultra X7 358H (Panther Lake)
+IPU7 at 0000:00:05.0, device 0xb05d rev 0x4
+Sensor: ov08x40, ACPI OVTI08F4:00, 2 lanes, port 0
+Ubuntu 24.04.4 LTS
+
+== Additional packages installed ==
+
+linux-modules-ipu7-generic-hwe-24.04
+linux-modules-ipu6-generic-hwe-24.04
+linux-modules-vision-generic-hwe-24.04
+(all 7.0.0-31.31~24.04.1)
+
+/etc/modprobe.d/ipu7-order.conf contains:
+  softdep intel_ipu7 pre: usbio gpio_usbio i2c_usbio intel_cvs intel_skl_int3472_discrete
+This softdep predates the problem and addresses an unrelated int3472/USBIO
+GPIO deferral race. It does not affect the psys failure either way.
+
+== Workaround ==
+
+Boot 7.0.0-30-generic and hold it plus its module packages:
+
+  apt-mark hold linux-image-7.0.0-30-generic linux-modules-7.0.0-30-generic \
+    linux-modules-ipu7-7.0.0-30-generic linux-modules-ipu6-7.0.0-30-generic \
+    linux-modules-vision-7.0.0-30-generic
+
+== Note on the attached apport data ==
+
+apport was run while booted on the working 7.0.0-30-generic kernel, since
+7.0.0-31-generic leaves this machine without a camera. The attached
+boot-31-full.log.gz is the complete kernel log from a 7.0.0-31-generic boot
+and contains the failure and the full oops with register dump.
+
+--
+Filed as LP #2166612. The kernel log referenced above is attached to that bug
+rather than committed here, since it contains MAC addresses and disk UUIDs.

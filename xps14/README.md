@@ -34,3 +34,20 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
   on generic, and the `7.0.0-31` regression
 - [oem-stack.md](oem-stack.md) — what the Dell/OEM packages actually do, what is safe to
   remove, and the Ubuntu 26.04 upgrade
+- [live-test.sh](live-test.sh) — self-contained camera test to run from a 26.04 live USB
+
+## Testing the camera from a live USB
+
+No notes or network access to this repo needed beyond one download:
+
+```sh
+curl -O https://raw.githubusercontent.com/cboettig/xps/master/xps14/live-test.sh
+sudo bash live-test.sh
+```
+
+It adds the Dell archive, installs the kernel modules and camera userspace for
+whatever kernel the live session is running, captures frames, and prints a verdict.
+It never unbinds the IPU7 device — that oopses on `7.0.0-31-generic`.
+
+Results land in `/root/camera-live-test.log` and `/root/frames-*/`, both in the live
+session's RAM overlay — copy them to the USB stick before rebooting.
