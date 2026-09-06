@@ -39,7 +39,7 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
   actually broke, and the two fixes it needed
 - [etc/](etc/) — copies of the hand-edited config files, for restoring after an upgrade
   overwrites them (the 26.04 upgrade replaced the camera config without prompting)
-- `prep.sh`, `next.sh`, `fix.sh`, `fix-relayd-race.sh` — the upgrade steps, in order; see
+- `prep.sh`, `next.sh`, `fix.sh`, `fix-relayd-kick.sh` — the upgrade steps, in order; see
   [upgrade-26.04.md](upgrade-26.04.md#what-actually-happened)
 
 ## Testing the camera from a live USB
