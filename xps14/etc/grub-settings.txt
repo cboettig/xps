@@ -1,3 +1,3 @@
-GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-30-generic"
+GRUB_DEFAULT=0
 GRUB_TIMEOUT_STYLE=menu
 GRUB_TIMEOUT=5

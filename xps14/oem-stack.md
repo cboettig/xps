@@ -102,6 +102,13 @@ fallback besides the held `7.0.0-30-generic`.
 
 ## Ubuntu 26.04 (resolute)
 
+> **Upgraded 2026-09-06.** Everything predicted below held: the Dell archive carried
+> forward, the camera userspace upgraded to its `~ubuntu26.04` builds, and
+> `oem-somerville-hypno-meta` moved to `linux-generic-hwe-26.04`. What the analysis missed
+> was `v4l2loopback` repackaging (which stranded `7.0.0-30`) and the stale noble module
+> packages left shadowing resolute's. See
+> [upgrade-26.04.md](upgrade-26.04.md#what-actually-happened).
+
 ### The upgrader's "foreign packages" warning is a non-issue
 
 Every package it flags resolves in resolute. Verified by grepping the fetched resolute
@@ -248,15 +255,17 @@ Consequences to plan for:
   obsolete. `wpa-hwe` goes with them, and `wpasupplicant` reverts to the archive build
   (`2:2.11-0ubuntu5`) — fine, but it is a real change to wifi supplicant code.
 
-### Open question: does 26.04 fix 7.0.0-31?
+### Answered: yes, 26.04 fixes 7.0.0-31
 
-Resolute carries `linux-modules-ipu7-generic-hwe-26.04` at `7.0.0-31.31+2`, a different build
-of the same ABI as the `7.0.0-31.31~24.04.1` that is broken here. **Untested.** If it fixes
-the psys probe, the held `7.0.0-30` pin can be dropped after upgrading. If it does not, 26.04
-lands on a kernel whose camera does not work — so verify before releasing the holds.
+Resolute's `linux-modules-ipu7-generic-hwe-26.04` (`7.0.0-31.31+2`) carries a psys module
+with srcversion `0DB161AA0DFA3D4C864A551`, against noble's `32D18897D60F8FF10DA6F05` — a
+genuine source change, ~7.8 KB larger, not a rebuild. **Confirmed working**: on 26.04,
+`7.0.0-31-generic` reports `IPU psys probe done.`
 
-Given that, the sane order is: confirm the camera on a 26.04 generic kernel *first* (live USB
-or a snapshot), then upgrade, then clean up the OEM kernel — not the other way round.
+This cannot be tested from noble. The modules have matching `vermagic` but different symbol
+CRCs, so resolute's psys is rejected on a noble kernel with `disagrees about version of
+symbol module_layout`. `CONFIG_MODVERSIONS` makes matching `vermagic` necessary but not
+sufficient — a trap worth remembering before attempting any cross-release module swap.
 
 Decision tree once on 26.04:
 
