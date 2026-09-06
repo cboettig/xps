@@ -35,6 +35,9 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
 - [oem-stack.md](oem-stack.md) — what the Dell/OEM packages actually do, what is safe to
   remove, and the Ubuntu 26.04 upgrade
 - [live-test.sh](live-test.sh) — self-contained camera test to run from a 26.04 live USB
+- [upgrade-26.04.md](upgrade-26.04.md) — checklist for the noble → resolute upgrade
+- [etc/](etc/) — copies of the hand-edited config files, for restoring after a bad
+  upgrade prompt
 
 ## Testing the camera from a live USB
 
