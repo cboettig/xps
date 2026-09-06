@@ -1,18 +1,28 @@
 # Kernel choice and the camera
 
-Ubuntu ships two kernel flavours on this machine: the Dell/OEM `6.17.0-*-oem`
-(`linux-oem-24.04d`) and the generic HWE series `7.0.0-*-generic`
-(`linux-generic-hwe-24.04`). Both metapackages are marked manually installed, so both stay
-updated.
+This machine now runs Ubuntu 26.04 on `7.0.0-31-generic`. Two kernel flavours remain
+available: generic (`linux-generic-hwe-26.04`) and Dell/OEM (`linux-oem-26.04`,
+`7.0.0-1013`). The 24.04-era `linux-oem-24.04d` series has no resolute successor.
 
-**Status as of 2026-09-05.** The camera works on the generic kernel — but *not on every*
-generic kernel. Current known-good set:
+Note that the OEM *kernel* has never been a Dell package — `linux-oem-*` ships from
+`archive.ubuntu.com`. Only the camera *userspace* comes from Dell. See
+[oem-stack.md](oem-stack.md#kernel-packages-do-not-come-from-dell).
 
-| Kernel | Camera | Notes |
+**Status as of 2026-09-06, on Ubuntu 26.04.** The `7.0.0-31` regression is **fixed on
+26.04** — resolute ships a rebuilt psys module. Current state:
+
+| Kernel | Camera on 26.04 | Notes |
 |---|---|---|
-| `6.17.0-1032-oem` | works | vendor default; kept as fallback |
-| `7.0.0-30-generic` | works | **current default**, held (see below) |
-| `7.0.0-31-generic` | **broken** | psys never probes; also oopses on driver unbind |
+| `7.0.0-31-generic` | **works** | current default; psys `0DB161AA…` (rebuilt) |
+| `7.0.0-1013-oem` | untested | `linux-oem-26.04`, separate ABI line; **no v4l2loopback module package** |
+| `7.0.0-30-generic` | **broken** | no `v4l2loopback` on 26.04 — see below. Was the known-good kernel on noble. |
+| `6.17.0-1032-oem` | untested | not in resolute; still installed and bootable |
+
+**`7.0.0-30-generic` is no longer a fallback.** On 26.04 `v4l2loopback` became its own
+module package and only exists for `-31`; resolute has no build for `-30`. Booting `-30`
+gives `Failed to find module 'v4l2loopback'`, `v4l2-relayd` hits its start limit, and there
+is no `/dev/video0`. The noble-era intuition that `-30` is the safe kernel is now exactly
+backwards.
 
 The history here matters, because this file has been wrong twice:
 
@@ -20,7 +30,13 @@ The history here matters, because this file has been wrong twice:
   [What the generic kernel needs](#what-the-generic-kernel-needs).
 - A later revision concluded "generic is no longer a blocker" and recommended tracking the
   `-generic-hwe-24.04` metapackages. That advice is what put `7.0.0-31` on the machine and
-  broke the camera. Tracking the newest generic kernel is exactly the wrong default here.
+  broke the camera on noble.
+- A third revision then pinned `7.0.0-30` as the durable fallback. Correct on noble, wrong
+  the moment 26.04 landed — `v4l2loopback` repackaging stranded `-30` entirely.
+
+The general lesson: on this hardware the camera depends on a *set* of separately-versioned
+module packages, and any of them can be repackaged, renamed, or left behind by an upgrade.
+Check the whole set after any kernel or release change, not just the kernel version.
 
 ## The kernel is only half the story
 
@@ -61,18 +77,14 @@ $ cat /etc/default/grub.d/zz-flavour-order.cfg
 GRUB_FLAVOUR_ORDER=generic
 ```
 
-**Version pin.** Flavour order cannot express *which* generic kernel, and we need `-30`
-specifically, so `GRUB_DEFAULT` names the entry outright:
+**Version selection.** Currently `GRUB_DEFAULT=0` — with `GRUB_FLAVOUR_ORDER=generic` that
+means "newest generic", which keeps working as kernels arrive.
+
+If you ever need to pin one specific kernel, `GRUB_DEFAULT` can name the entry outright, but
+the string must match a `menuentry` title verbatim, so derive it rather than typing it:
 
 ```sh
-GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-30-generic"
-```
-
-That string must match a `menuentry` title in `/boot/grub/grub.cfg` verbatim; derive it
-rather than typing it:
-
-```sh
-grep -oP "^\s*menuentry '\KUbuntu, with Linux 7\.0\.0-30-generic(?=')" /boot/grub/grub.cfg
+grep -oP "^\s*menuentry '\KUbuntu, with Linux [0-9.]+-generic(?=')" /boot/grub/grub.cfg
 ```
 
 The menu is left visible (`GRUB_TIMEOUT_STYLE=menu`, `GRUB_TIMEOUT=5`) so a bad default can
@@ -86,28 +98,32 @@ Two things that look like evidence but are not:
   by `linux-update-symlinks`; GRUB does not consult them.
 - `grub-editenv list` is empty. No `saved_entry` pin, and none is wanted.
 
-## Holding 7.0.0-30
+## Holds: none, deliberately
 
-The `-generic-hwe-24.04` metapackages keep pulling newer kernels. Without holds, `-30` is
-eventually autoremoved and the machine silently lands on a broken camera:
+On noble, `7.0.0-30` and its module packages were held with `apt-mark hold` to stop the
+`-generic-hwe-24.04` metapackages dragging the machine onto the broken `-31`. **Those holds
+were released for the release upgrade and should not be restored** — `-30` does not work on
+26.04 at all (no `v4l2loopback`).
 
-```sh
-sudo apt-mark hold \
-  linux-image-7.0.0-30-generic \
-  linux-modules-7.0.0-30-generic \
-  linux-modules-ipu7-7.0.0-30-generic \
-  linux-modules-ipu6-7.0.0-30-generic \
-  linux-modules-vision-7.0.0-30-generic
-```
-
-Check with `apt-mark showhold`. Revisit these holds whenever a new generic kernel lands —
-the point is to *test* before switching, not to freeze forever.
+There is nothing pinned now. Boot selection is by flavour order and `GRUB_DEFAULT=0`, i.e.
+"newest generic". The safeguard is no longer a hold but a habit: after any kernel update,
+confirm the camera still works before trusting it. The one-line check is in
+[Verifying](#verifying).
 
 ## The 7.0.0-31 regression
 
 Filed upstream as **[LP #2166612](https://bugs.launchpad.net/ubuntu/+source/linux-hwe-7.0/+bug/2166612)**
-against `linux-hwe-7.0` (2026-09-06). If it is fixed in `-32`, the holds below
-become unnecessary.
+against `linux-hwe-7.0` (2026-09-06).
+
+**This is a noble-only bug.** 26.04 ships a rebuilt psys module for the same
+`7.0.0-31` ABI and it probes correctly — verified on this machine after the
+upgrade. The fix therefore already exists; what noble needs is a backport of
+resolute's `linux-main-modules-ipu7-7.0.0-31-generic` (`7.0.0-31.31+2`,
+srcversion `0DB161AA0DFA3D4C864A551`) in place of its own `7.0.0-31.31~24.04.1`
+(srcversion `32D18897D60F8FF10DA6F05`).
+
+Everything below describes the failure **as seen on noble**, kept because it is
+what the bug report documents and what a stale `-31` install still does.
 
 Symptom: no `/dev/ipu7-psys0`, and `/dev/video0` yields a single placeholder frame and then
 stalls.
@@ -307,21 +323,85 @@ not by invoking `icamerasrc` directly.
 | `configure psys dag failed:-38` from a user shell | not a fault — psys node is root-only |
 | GLib `G_IS_PARAM_SPEC` assertions from `v4l2-relayd` | `icamerasrc` failed to init; look upstream of it |
 
+## Two things the 26.04 upgrade broke
+
+Neither is a kernel bug; both are packaging artefacts of the release upgrade, and neither
+would have shown up in a live-USB test.
+
+### Stale noble module packages shadow resolute's
+
+The upgrade leaves *both* module sets installed for `-31`:
+
+```
+ubuntu/vision/intel_cvs.ko.zst        linux-modules-vision-7.0.0-31-generic  (7.0.0-31.31~24.04.1, noble)
+ubuntu/dkms/vision/intel_cvs.ko.zst   linux-main-modules-vision-7.0.0-31-generic (7.0.0-31.31+2, resolute)
+```
+
+`depmod` searches `ubuntu/` before `ubuntu/dkms/`, so `modprobe` picks the **noble** build,
+which cannot load against resolute's kernel — identical `vermagic`, different symbol CRCs.
+`intel_cvs` therefore never loads, the sensor's I²C device is never created, `ov08x40` loads
+but never binds, and the media graph has no sensor. psys escaped this only by chance,
+resolving to the dkms copy.
+
+Diagnosis is easy once you know to look — `modprobe -n -v` shows which copy wins:
+
+```sh
+modprobe -n -v intel_cvs        # want a path under ubuntu/dkms/
+```
+
+Fix (see [fix.sh](fix.sh)):
+
+```sh
+sudo apt purge linux-modules-ipu6-7.0.0-31-generic \
+               linux-modules-ipu7-7.0.0-31-generic \
+               linux-modules-vision-7.0.0-31-generic
+sudo depmod -a 7.0.0-31-generic
+sudo update-initramfs -u -k 7.0.0-31-generic
+```
+
+A reboot is required: the sensor binds during the ipu7 ACPI probe, so loading `intel_cvs`
+late does not retroactively attach `ov08x40`.
+
+### v4l2-relayd races the loopback device at boot
+
+`v4l2-relayd` 0.2.0 + `v4l2loopback` 0.15.3. The unit orders itself
+`After=modprobe@v4l2loopback.service`, which waits for the *module*, not the *device node*:
+
+```
+13:26:44.6  v4l2loopback module inserted
+13:26:46.8  v4l2-relayd started      <- nothing to attach to yet
+13:26:56.9  /dev/video0 created      <- 10s too late
+```
+
+relayd finds no loopback, never opens it to watch for clients, and idles forever — **at
+0.1% CPU, holding no fd, logging nothing**. `/dev/video0` still exists (something creates it
+later) and still returns one stale placeholder frame, so it looks like the camera is merely
+broken rather than that a service is asleep.
+
+Tells: `systemctl is-active` says `active`; `ps` shows ~0.1% CPU; `ls /proc/<pid>/fd | grep video`
+is empty. A manual `systemctl restart v4l2-relayd@default.service` fixes it until reboot.
+
+Permanent fix (see [fix-relayd-race.sh](fix-relayd-race.sh)): a drop-in
+`ExecStartPre` that waits for a video4linux device matching `CARD_LABEL`, so relayd either
+starts with a device present or fails visibly.
+
 ## Current versions
 
 ```console
 $ uname -r
-7.0.0-30-generic                    # verified working 2026-09-05
-$ dpkg -l | grep -E 'linux-modules-(ipu[67]|vision)-generic-hwe'
-ii  linux-modules-ipu6-generic-hwe-24.04    7.0.0-31.31~24.04.1
-ii  linux-modules-ipu7-generic-hwe-24.04    7.0.0-31.31~24.04.1
-ii  linux-modules-vision-generic-hwe-24.04  7.0.0-31.31~24.04.1
+7.0.0-31-generic                    # verified working on 26.04, 2026-09-06
+$ cat /sys/module/intel_ipu7_psys/srcversion
+0DB161AA0DFA3D4C864A551             # the rebuilt module; noble's is 32D18897...
 ```
 
-Note the metapackages sit at `-31` while the *booted* kernel is held at `-30`; the
-version-pinned `7.0.0-30-generic` module packages are what actually load. Both `-30` and
-`-31` module sets are installed.
+Boot selection is `GRUB_DEFAULT=0` plus `GRUB_FLAVOUR_ORDER=generic` in
+`/etc/default/grub.d/zz-flavour-order.cfg`, i.e. "newest generic". That keeps working as new
+generic kernels arrive — but **test the camera after any kernel update**, since this
+hardware has now been broken by one.
 
-The OEM kernel `6.17.0-1032-oem` remains installed and working. It is no longer the GRUB
-default, but it is a second known-good fallback and should not be removed while `-31` is
-broken.
+No `apt-mark hold` is in place any more. The noble-era holds on `7.0.0-30` were released for
+the upgrade and are not worth restoring: `-30` no longer works on 26.04.
+
+`apt autoremove` still has ~175 packages queued, including
+`linux-modules-{ipu6,ipu7,usbio,vision}-6.17.0-1032-oem`. Running it would leave the OEM
+kernel bootable but cameraless. Deal with that deliberately, not as a side effect.

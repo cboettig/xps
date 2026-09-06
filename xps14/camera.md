@@ -3,9 +3,21 @@
 The built-in camera (Intel IPU7, `ov08x40` sensor) delivers a 180°-rotated image to every
 application. The external USB webcam is unaffected — it is a plain UVC device on a separate path.
 
-> **Prerequisite:** this is a userspace fix and assumes the kernel half already works. If you
-> have *no* image rather than an upside-down one, the problem is not here — check that the
-> psys device probed, per [kernel.md](kernel.md#verifying). On `7.0.0-31-generic` it does not.
+> **Prerequisite:** this is a userspace fix and assumes the rest of the pipeline works. If
+> you have *no* image rather than an upside-down one, the problem is not here. Check, in
+> order: psys probed and the sensor bound ([kernel.md](kernel.md#verifying)), then that
+> `v4l2-relayd` is actually streaming rather than asleep
+> ([the boot race](kernel.md#two-things-the-2604-upgrade-broke) — it reports `active` while
+> doing nothing).
+
+> **Survives upgrades badly.** The 26.04 upgrade **replaced** this file outright rather than
+> prompting, silently dropping `flip-mode=vhflip`. A copy lives in
+> [etc/v4l2-relayd-default.conf](etc/v4l2-relayd-default.conf); re-check after any
+> `v4l2-relayd` update:
+>
+> ```sh
+> pgrep -af 'v4l2-relayd -i' | grep -o 'flip-mode=[a-z]*'
+> ```
 
 ## Cause
 
@@ -73,4 +85,10 @@ gst-launch-1.0 -q v4l2src device=/dev/video0 num-buffers=20 ! videoconvert ! jpe
 ls -l frame*.jpg | awk '{print $5}' | sort -u | wc -l    # must be > 1
 ```
 
-The setting is read at service start, so it persists across reboots.
+The setting is read at service start, so it persists across reboots — but see the upgrade
+warning above; the *file* is what does not persist.
+
+Verified on `v4l2-relayd` 0.2.0 / `libcamhal-ipu75xa` `~ubuntu26.04.1` (Ubuntu 26.04,
+2026-09-06). The config format is unchanged from 0.1.2: same keys, and the unit still reads
+`/etc/v4l2-relayd.d/<instance>.conf`. 0.2.0 also installs a top-level `/etc/v4l2-relayd`
+with identical content, which the templated unit does **not** read — edit the `.d/` file.

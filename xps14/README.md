@@ -11,11 +11,10 @@ Configuration notes for the XPS 14, as distinct from the XPS 13 notes in the rep
 | Motherboard | 0H2HX9 |
 | CPU | Intel Core Ultra X7 358H |
 | BIOS | 1.8.2 (2026-05-22) |
-| OS | Ubuntu 24.04.4 LTS (noble) — shipped this way by Dell |
-| Release upgrades | `Prompt=lts` — changed locally from the `never` Dell ships, so 26.04 is offered |
-| Kernel | **7.0.0-30-generic** (GRUB default, held) |
-| Fallback kernel | 6.17.0-1032-oem (works; keep) |
-| Known-bad kernel | 7.0.0-31-generic (camera dead — see [kernel.md](kernel.md)) |
+| OS | Ubuntu 26.04.1 LTS (resolute) — upgraded from 24.04 on 2026-09-06 |
+| Release upgrades | `Prompt=lts` — changed locally from the `never` Dell ships |
+| Kernel | **7.0.0-31-generic** (GRUB default via `GRUB_DEFAULT=0`) |
+| Camera | working — see [camera.md](camera.md) |
 
 Identifying info came from:
 
@@ -34,10 +33,14 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
   on generic, and the `7.0.0-31` regression
 - [oem-stack.md](oem-stack.md) — what the Dell/OEM packages actually do, what is safe to
   remove, and the Ubuntu 26.04 upgrade
-- [live-test.sh](live-test.sh) — self-contained camera test to run from a 26.04 live USB
-- [upgrade-26.04.md](upgrade-26.04.md) — checklist for the noble → resolute upgrade
-- [etc/](etc/) — copies of the hand-edited config files, for restoring after a bad
-  upgrade prompt
+- [live-test.sh](live-test.sh) — self-contained camera test for a live USB (kept for
+  future releases; the 26.04 upgrade was done in place instead)
+- [upgrade-26.04.md](upgrade-26.04.md) — the noble → resolute upgrade: checklist, what
+  actually broke, and the two fixes it needed
+- [etc/](etc/) — copies of the hand-edited config files, for restoring after an upgrade
+  overwrites them (the 26.04 upgrade replaced the camera config without prompting)
+- `prep.sh`, `next.sh`, `fix.sh`, `fix-relayd-race.sh` — the upgrade steps, in order; see
+  [upgrade-26.04.md](upgrade-26.04.md#what-actually-happened)
 
 ## Testing the camera from a live USB
 

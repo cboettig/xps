@@ -1,5 +1,9 @@
 # Upgrading noble → resolute (24.04 → 26.04)
 
+> **Done: 2026-09-06.** The upgrade succeeded and the camera works on
+> `7.0.0-31-generic`. It needed two fixes afterwards, neither anticipated by the
+> plan below — see [What actually happened](#what-actually-happened) at the end.
+
 Checklist for this machine specifically. The camera is the fragile part; see
 [kernel.md](kernel.md) and [oem-stack.md](oem-stack.md) for why.
 
@@ -90,9 +94,9 @@ gst-launch-1.0 -q v4l2src device=/dev/video0 num-buffers=20 ! videoconvert ! jpe
 ls -l /tmp/f*.jpg | awk '{print $5}' | sort -u | wc -l    # must be > 1
 ```
 
-1. **`7.0.0-30-generic`** — the default, known-good on noble. Under resolute it
-   picks up the *rebuilt* psys (`0DB161AA…` rather than noble's `32D18897…`), so
-   a pass also confirms the new psys source works on this hardware.
+1. ~~**`7.0.0-30-generic`** — the default, known-good on noble.~~ **Wrong.** On 26.04
+   `v4l2loopback` is a separate module package that exists only for `-31`, so `-30` cannot
+   run the camera at all. Go straight to `-31`.
 2. **`7.0.0-31-generic`** — 26.04's default. Broken on noble
    ([LP #2166612](https://bugs.launchpad.net/ubuntu/+source/linux-hwe-7.0/+bug/2166612));
    the question is whether resolute's rebuilt psys fixes it. **Do not unbind the
@@ -120,3 +124,46 @@ entry under *Advanced options*.
   now depend on `linux-generic-hwe-26.04`.
 - Confirm the `ov08x40-uf.json` diversion still holds:
   `dpkg -S /etc/camera/ipu75xa/sensors/ov08x40-uf.json`
+
+
+## What actually happened
+
+The upgrade itself was clean — `dpkg --audit` empty, no half-configured packages, all four
+kernels intact, camera userspace upgraded to the 26.04 builds. It was interrupted at the
+final "remove obsolete packages?" prompt (unrelated GUI freeze from launching Startup Disk
+Creator mid-upgrade); `apt -f install` confirmed nothing was left broken.
+
+**The good news:** [LP #2166612](https://bugs.launchpad.net/ubuntu/+source/linux-hwe-7.0/+bug/2166612)
+is fixed on 26.04. `7.0.0-31-generic` reports `IPU psys probe done.` with resolute's rebuilt
+psys module. That was the question this whole exercise existed to answer.
+
+**Three things the plan got wrong:**
+
+1. **`7.0.0-30-generic` is not a fallback on 26.04.** `v4l2loopback` became its own module
+   package and only exists for `-31`. Booting `-30` gives `Failed to find module
+   'v4l2loopback'` and `v4l2-relayd` fails with `start-limit-hit`. The whole "land on the
+   known-good kernel first" strategy was built on this and was backwards. `7.0.0-1013-oem`
+   has the same gap.
+
+2. **Stale noble module packages shadow resolute's.** Both sets stay installed for `-31`;
+   `depmod` prefers `ubuntu/` over `ubuntu/dkms/`, so `modprobe` picks noble builds that
+   cannot load. Fixed by [fix.sh](fix.sh). Details in
+   [kernel.md](kernel.md#two-things-the-2604-upgrade-broke).
+
+3. **`v4l2-relayd` races the loopback device at boot.** Fixed by
+   [fix-relayd-race.sh](fix-relayd-race.sh).
+
+**Conffile handling was not as promised.** The plan said to answer "keep current" at the
+config prompts. `/etc/default/grub` and `zz-flavour-order.cfg` did survive — but
+`/etc/v4l2-relayd.d/default.conf` was **replaced outright**, silently dropping
+`flip-mode=vhflip`. Restored from [etc/](etc/). Snapshotting those files beforehand is the
+single most useful thing in this checklist; do it again next time.
+
+**Sequence that worked**, for reference:
+
+```sh
+sudo ./prep.sh              # restore camera config, add oem-26.04 fallback, update-grub
+sudo ./next.sh              # GRUB_DEFAULT=0 -> newest generic, reboot into -31
+sudo ./fix.sh               # purge shadowing noble modules, depmod, initramfs, reboot
+sudo ./fix-relayd-race.sh   # systemd drop-in so relayd waits for the loopback node
+```
