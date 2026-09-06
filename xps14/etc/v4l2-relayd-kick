@@ -1,0 +1,22 @@
+#!/bin/sh
+# Wait for the v4l2loopback device v4l2-relayd creates, then restart relayd
+# once so it actually streams. See xps14/kernel.md.
+set -u
+CONF=/etc/v4l2-relayd.d/default.conf
+LABEL=$(sed -n 's/^CARD_LABEL=//p' "$CONF" 2>/dev/null | tr -d '"' | head -1)
+[ -n "$LABEL" ] || LABEL="Intel MIPI Camera"
+
+i=0
+while [ "$i" -lt 120 ]; do
+    for f in /sys/devices/virtual/video4linux/*/name; do
+        [ -e "$f" ] || continue
+        if [ "$(cat "$f" 2>/dev/null)" = "$LABEL" ]; then
+            logger -t v4l2-relayd-kick "device '$LABEL' present, restarting relayd"
+            exec systemctl try-restart v4l2-relayd@default.service
+        fi
+    done
+    i=$((i + 1))
+    sleep 0.5
+done
+logger -t v4l2-relayd-kick "device '$LABEL' never appeared after 60s; not restarting"
+exit 0

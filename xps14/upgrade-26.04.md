@@ -1,8 +1,9 @@
 # Upgrading noble → resolute (24.04 → 26.04)
 
 > **Done: 2026-09-06.** The upgrade succeeded and the camera works on
-> `7.0.0-31-generic`. It needed two fixes afterwards, neither anticipated by the
-> plan below — see [What actually happened](#what-actually-happened) at the end.
+> `7.0.0-31-generic`, verified across a clean boot. It needed two fixes afterwards,
+> neither anticipated by the plan below — see
+> [What actually happened](#what-actually-happened) at the end.
 
 Checklist for this machine specifically. The camera is the fragile part; see
 [kernel.md](kernel.md) and [oem-stack.md](oem-stack.md) for why.
@@ -150,8 +151,11 @@ psys module. That was the question this whole exercise existed to answer.
    cannot load. Fixed by [fix.sh](fix.sh). Details in
    [kernel.md](kernel.md#two-things-the-2604-upgrade-broke).
 
-3. **`v4l2-relayd` races the loopback device at boot.** Fixed by
-   [fix-relayd-race.sh](fix-relayd-race.sh).
+3. **`v4l2-relayd` does not stream after boot.** It reports `active` while sitting idle at
+   0% CPU holding no device, and `/dev/video0` returns a single stale frame. Fixed by
+   [fix-relayd-kick.sh](fix-relayd-kick.sh), which kicks relayd once from a oneshot service
+   after the device exists. The mechanism is not fully understood — see
+   [kernel.md](kernel.md#v4l2-relayd-does-not-stream-after-boot).
 
 **Conffile handling was not as promised.** The plan said to answer "keep current" at the
 config prompts. `/etc/default/grub` and `zz-flavour-order.cfg` did survive — but
@@ -165,5 +169,5 @@ single most useful thing in this checklist; do it again next time.
 sudo ./prep.sh              # restore camera config, add oem-26.04 fallback, update-grub
 sudo ./next.sh              # GRUB_DEFAULT=0 -> newest generic, reboot into -31
 sudo ./fix.sh               # purge shadowing noble modules, depmod, initramfs, reboot
-sudo ./fix-relayd-race.sh   # systemd drop-in so relayd waits for the loopback node
+sudo ./fix-relayd-kick.sh   # oneshot service that kicks relayd once after boot
 ```

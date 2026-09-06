@@ -362,28 +362,50 @@ sudo update-initramfs -u -k 7.0.0-31-generic
 A reboot is required: the sensor binds during the ipu7 ACPI probe, so loading `intel_cvs`
 late does not retroactively attach `ov08x40`.
 
-### v4l2-relayd races the loopback device at boot
+### v4l2-relayd does not stream after boot
 
-`v4l2-relayd` 0.2.0 + `v4l2loopback` 0.15.3. The unit orders itself
-`After=modprobe@v4l2loopback.service`, which waits for the *module*, not the *device node*:
+`v4l2-relayd` 0.2.0 + `v4l2loopback` 0.15.3. After a boot, relayd's first run leaves the
+camera dead: `/dev/video0` exists and returns exactly one stale placeholder frame, and
+nothing else. Restarting the service fixes it until the next boot.
+
+The tells, none of which look like a fault:
+
+| Check | Broken state |
+|---|---|
+| `systemctl is-active` | `active` — it does **not** fail |
+| `ps -o %cpu` | ~0.0% — a 720p30 pipeline would not be idle |
+| `ls /proc/<pid>/fd \| grep video` | empty — holding no device |
+| journal for the unit | nothing beyond the `SPLASHSRC` notice |
+| `/dev/video0` capture | 1 frame, 15027 bytes, then stalls |
+
+**Honest status: the fix is empirical, the mechanism is not fully characterised.** What is
+established: relayd creates the loopback device itself (`ATTR{format}` on `video0` matches
+its configured `NV12:1280x720@30`), and a restart *with the device already present* streams
+correctly. What is not established is why the first run does not. Boot timings have been
+inconsistent — on two boots the device appeared ~10s after relayd started, on another it was
+present within 5s and its timestamp then moved *after* the restart. Do not trust any causal
+story here, including one an earlier revision of this file told confidently.
+
+An earlier attempt used an `ExecStartPre` that waited for the device before starting relayd.
+It was wrong twice: the multi-line inline shell in the unit file was mangled by systemd (the
+`;` separators were dropped, so the loop never ran), and had it parsed it would have
+deadlocked, since it waited for a device only relayd creates. Do not reinstate it; check
+`systemctl show -p ExecStartPre` if you ever put a script in a unit file.
+
+The working fix ([fix-relayd-kick.sh](fix-relayd-kick.sh)) lets relayd start normally, then
+kicks it once from a oneshot service that runs after it:
 
 ```
-13:26:44.6  v4l2loopback module inserted
-13:26:46.8  v4l2-relayd started      <- nothing to attach to yet
-13:26:56.9  /dev/video0 created      <- 10s too late
+/usr/local/sbin/v4l2-relayd-kick        # waits up to 60s for a device named CARD_LABEL,
+                                        # then `systemctl try-restart` relayd, once
+/etc/systemd/system/v4l2-relayd-kick.service   # Type=oneshot, After=v4l2-relayd@default
 ```
 
-relayd finds no loopback, never opens it to watch for clients, and idles forever — **at
-0.1% CPU, holding no fd, logging nothing**. `/dev/video0` still exists (something creates it
-later) and still returns one stale placeholder frame, so it looks like the camera is merely
-broken rather than that a service is asleep.
+Oneshot means it cannot loop, and it never blocks relayd from starting. Verify after a boot:
 
-Tells: `systemctl is-active` says `active`; `ps` shows ~0.1% CPU; `ls /proc/<pid>/fd | grep video`
-is empty. A manual `systemctl restart v4l2-relayd@default.service` fixes it until reboot.
-
-Permanent fix (see [fix-relayd-race.sh](fix-relayd-race.sh)): a drop-in
-`ExecStartPre` that waits for a video4linux device matching `CARD_LABEL`, so relayd either
-starts with a device present or fails visibly.
+```sh
+journalctl -b -t v4l2-relayd-kick     # expect "device '...' present, restarting relayd"
+```
 
 ## Current versions
 

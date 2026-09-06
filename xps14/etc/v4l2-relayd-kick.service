@@ -1,0 +1,13 @@
+[Unit]
+Description=Kick v4l2-relayd once its loopback device exists
+Documentation=https://github.com/cboettig/xps/tree/master/xps14
+After=v4l2-relayd@default.service
+Wants=v4l2-relayd@default.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/v4l2-relayd-kick
+
+[Install]
+WantedBy=multi-user.target
