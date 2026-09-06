@@ -1,0 +1,40 @@
+Resolved by upgrading to 26.04, which suggests this needs a backport rather
+than a new fix.
+
+Ubuntu 26.04 (resolute) ships a *rebuilt* intel-ipu7-psys for the same
+7.0.0-31 ABI, and it probes correctly on this hardware:
+
+  noble    linux-modules-ipu7-7.0.0-31-generic       7.0.0-31.31~24.04.1
+           srcversion 32D18897D60F8FF10DA6F05        102897 bytes   FAILS
+
+  resolute linux-main-modules-ipu7-7.0.0-31-generic  7.0.0-31.31+2
+           srcversion 0DB161AA0DFA3D4C864A551        110702 bytes   WORKS
+
+Different srcversion and ~7.8 KB larger, so this is a source change rather
+than a rebuild. intel_cvs (linux-modules-vision-*) is byte-identical between
+the two, so the psys module looks like the only thing that changed in this
+area.
+
+After upgrading, on 7.0.0-31-generic:
+
+  intel_ipu7_psys.psys intel_ipu7.psys.40: IPU psys probe done.
+
+/dev/ipu7-psys0 is present, ov08x40 binds, and the camera captures live
+video. Verified across a clean boot.
+
+I could not test the resolute module on noble to confirm before upgrading:
+the two builds share vermagic but not symbol CRCs, so the resolute build is
+rejected on a noble kernel with
+
+  intel_ipu7_psys: disagrees about version of symbol module_layout
+
+If the +2 rebuild is indeed the fix, backporting it into noble's
+linux-modules-ipu7-7.0.0-31-generic would resolve this for 24.04 users
+without waiting for a new ABI.
+
+Unchanged from the original report: the NULL deref in ipu7_pci_remove on
+unbind is a separate defect and I have not retested it on 26.04.
+
+Workaround for anyone on 24.04 hitting this: stay on 7.0.0-30-generic and
+hold the kernel plus its linux-modules-{ipu6,ipu7,vision}-7.0.0-30-generic
+packages.
