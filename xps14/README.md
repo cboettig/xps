@@ -26,34 +26,21 @@ uname -r
 Notes are specific to this hardware revision and kernel/OEM stack; the camera stack in
 particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
 
+## Getting the camera working
+
+- **Fresh 26.04 install** → [setup.md](setup.md), then `sudo ./setup.sh`
+- **Factory 24.04 image** → [upgrade.md](upgrade.md)
+- **Something broke** → [camera.md](camera.md#diagnosing), or just re-run `sudo ./setup.sh`
+
 ## Contents
 
-- [camera.md](camera.md) — built-in camera is upside down, and the fix
-- [kernel.md](kernel.md) — which kernel boots and why, the module packages the camera needs
-  on generic, and the `7.0.0-31` regression
-- [oem-stack.md](oem-stack.md) — what the Dell/OEM packages actually do, what is safe to
-  remove, and the Ubuntu 26.04 upgrade
-- [live-test.sh](live-test.sh) — self-contained camera test for a live USB (kept for
-  future releases; the 26.04 upgrade was done in place instead)
-- [upgrade-26.04.md](upgrade-26.04.md) — the noble → resolute upgrade: checklist, what
-  actually broke, and the two fixes it needed
-- [etc/](etc/) — copies of the hand-edited config files, for restoring after an upgrade
-  overwrites them (the 26.04 upgrade replaced the camera config without prompting)
-- `prep.sh`, `next.sh`, `fix.sh`, `fix-relayd-kick.sh` — the upgrade steps, in order; see
-  [upgrade-26.04.md](upgrade-26.04.md#what-actually-happened)
-
-## Testing the camera from a live USB
-
-No notes or network access to this repo needed beyond one download:
-
-```sh
-curl -O https://raw.githubusercontent.com/cboettig/xps/master/xps14/live-test.sh
-sudo bash live-test.sh
-```
-
-It adds the Dell archive, installs the kernel modules and camera userspace for
-whatever kernel the live session is running, captures frames, and prints a verdict.
-It never unbinds the IPU7 device — that oopses on `7.0.0-31-generic`.
-
-Results land in `/root/camera-live-test.log` and `/root/frames-*/`, both in the live
-session's RAM overlay — copy them to the USB stick before rebooting.
+| | |
+|---|---|
+| [setup.md](setup.md) | fresh install on 26.04 |
+| [upgrade.md](upgrade.md) | factory 24.04 → 26.04 |
+| [setup.sh](setup.sh) | idempotent installer; also verifies a working system |
+| [camera.md](camera.md) | how the camera stack fits together, verification, debugging |
+| [kernel.md](kernel.md) | boot selection, module packaging, the 24.04 `7.0.0-31` regression |
+| [oem-stack.md](oem-stack.md) | Dell/OEM packages: what they do, what is removable |
+| [etc/](etc/) | the config files `setup.sh` installs |
+| [bug/](bug/) | the report filed as LP #2166612 |
