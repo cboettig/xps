@@ -105,6 +105,10 @@ the point is to *test* before switching, not to freeze forever.
 
 ## The 7.0.0-31 regression
 
+Filed upstream as **[LP #2166612](https://bugs.launchpad.net/ubuntu/+source/linux-hwe-7.0/+bug/2166612)**
+against `linux-hwe-7.0` (2026-09-06). If it is fixed in `-32`, the holds below
+become unnecessary.
+
 Symptom: no `/dev/ipu7-psys0`, and `/dev/video0` yields a single placeholder frame and then
 stalls.
 

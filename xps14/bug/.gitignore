@@ -1,0 +1,4 @@
+# Kernel logs carry MAC addresses, disk UUIDs, device serials and the hostname.
+# Keep them local; the canonical copy is attached to the Launchpad bug.
+*.log
+*.log.gz
