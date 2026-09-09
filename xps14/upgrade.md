@@ -73,3 +73,15 @@ updated, but the files stay unless you autoremove them.
 
 `apt autoremove` will want to remove ~175 packages including the OEM 6.17 camera modules.
 Decide deliberately whether you still want that fallback before running it.
+
+**Rebuild every pipx venv:** `pipx reinstall-all`. pipx venvs symlink the system
+interpreter, so the jump from Python 3.12 to 3.14 orphans their `site-packages` and every
+app fails with `ModuleNotFoundError`. Nothing warns you — the venv, the launcher and any
+shell alias all still look fine. On this machine that silently broke the `vpn` alias
+(`gp-saml-gui`); see `berkeley-linux-config/vpn.md`. Hand-rolled `python3 -m venv` trees
+break the same way and need recreating.
+
+**Expect TLS failures against old servers.** 24.04 shipped OpenSSL 3.0.13; 26.04 ships
+3.5.5, and OpenSSL 3.2 turned `SSL_OP_LEGACY_SERVER_CONNECT` off by default. Anything
+lacking RFC 5746 secure renegotiation now fails the handshake with
+`UNSAFE_LEGACY_RENEGOTIATION_DISABLED` — the campus VPN gateways among them.
