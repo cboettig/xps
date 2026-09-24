@@ -131,3 +131,10 @@ reports `Fail to allocate shared memory by shmget` or `configure psys dag failed
 | Image upside down | `flip-mode=vhflip` lost from the relayd config |
 
 `sudo ./setup.sh` re-checks and repairs most of these.
+
+## The pipeline outlives its clients
+
+`v4l2-relayd` does not release the IPU7 when the last consumer of `/dev/video0`
+closes. The privacy LED stays lit, suspend fails with `-EBUSY`, and the aborted
+suspend wedges the speaker amps. `setup.sh` installs a pre-sleep hook that works
+around it. See [suspend.md](suspend.md).

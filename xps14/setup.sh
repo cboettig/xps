@@ -117,6 +117,18 @@ systemctl daemon-reload
 systemctl is-enabled v4l2-relayd-kick.service >/dev/null 2>&1 \
     || { systemctl enable v4l2-relayd-kick.service >/dev/null 2>&1; CHANGED=1; ok "enabled"; }
 
+# ------------------------------------------------------------- suspend hook
+# v4l2-relayd keeps a runtime-PM reference on the IPU7 after the last camera
+# client exits. That aborts the next suspend, and the aborted suspend is what
+# leaves the cs35l56 amps in runtime-PM error. Release it before sleeping.
+# See suspend.md.
+say "Suspend hook"
+if [ ! -f /etc/systemd/system-sleep/v4l2-relayd-release ] \
+   || ! cmp -s etc/v4l2-relayd-release /etc/systemd/system-sleep/v4l2-relayd-release; then
+    install -D -m0755 etc/v4l2-relayd-release /etc/systemd/system-sleep/v4l2-relayd-release
+    CHANGED=1; ok "sleep hook written"
+else ok "sleep hook current"; fi
+
 if [ "$CHANGED" = 1 ]; then update-grub >/dev/null 2>&1; fi
 
 # -------------------------------------------------------------------- verify
@@ -125,6 +137,12 @@ for m in intel_ipu7_psys intel_cvs ov08x40 v4l2loopback; do
     modinfo -k "$K" "$m" >/dev/null 2>&1 && ok "module $m" || no "module $m MISSING"
 done
 [ -e /dev/ipu7-psys0 ] && ok "/dev/ipu7-psys0" || no "/dev/ipu7-psys0 missing (reboot?)"
+u=$(cat /sys/bus/auxiliary/devices/intel_ipu7.psys.40/power/runtime_usage 2>/dev/null || echo 0)
+[ "$u" -eq 0 ] && ok "psys reference not leaked" \
+    || no "psys pinned (usage=$u) -- see suspend.md"
+e=$(grep -lx error /sys/bus/soundwire/drivers/cs35l56/sdw:*/power/runtime_status 2>/dev/null | wc -l)
+[ "$e" -eq 0 ] && ok "speaker amps healthy" \
+    || no "$e cs35l56 amps in error -- sudo ./amp-rebind.sh"
 media-ctl -d /dev/media0 -p 2>/dev/null | grep -q ov08x40 && ok "sensor in media graph" \
     || no "sensor not bound (reboot?)"
 
