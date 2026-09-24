@@ -15,6 +15,7 @@ Configuration notes for the XPS 14, as distinct from the XPS 13 notes in the rep
 | Release upgrades | `Prompt=lts` — changed locally from the `never` Dell ships |
 | Kernel | **7.0.0-31-generic** (GRUB default via `GRUB_DEFAULT=0`) |
 | Camera | working — see [camera.md](camera.md) |
+| Suspend | works, with a pre-sleep hook — see [suspend.md](suspend.md) |
 
 Identifying info came from:
 
@@ -31,6 +32,8 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
 - **Fresh 26.04 install** → [setup.md](setup.md), then `sudo ./setup.sh`
 - **Factory 24.04 image** → [upgrade.md](upgrade.md)
 - **Something broke** → [camera.md](camera.md#diagnosing), or just re-run `sudo ./setup.sh`
+- **Lid close does nothing, or the speakers went silent** → [suspend.md](suspend.md),
+  then `./suspend-check.sh`
 
 ## Contents
 
@@ -40,6 +43,9 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
 | [upgrade.md](upgrade.md) | factory 24.04 → 26.04 |
 | [setup.sh](setup.sh) | idempotent installer; also verifies a working system |
 | [camera.md](camera.md) | how the camera stack fits together, verification, debugging |
+| [suspend.md](suspend.md) | the camera reference leak that blocks suspend and kills the speakers |
+| [suspend-check.sh](suspend-check.sh) | read-only check for a leaked IPU7 reference and wedged amps |
+| [amp-rebind.sh](amp-rebind.sh) | recover the speaker amps from runtime-PM error without rebooting |
 | [kernel.md](kernel.md) | boot selection, module packaging, the 24.04 `7.0.0-31` regression |
 | [oem-stack.md](oem-stack.md) | Dell/OEM packages: what they do, what is removable |
 | [etc/](etc/) | the config files `setup.sh` installs |

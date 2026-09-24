@@ -1,0 +1,37 @@
+#!/bin/sh
+# Release the IPU7 runtime-PM reference v4l2-relayd leaks when a camera client
+# exits. Without this the reference survives the client, psys_suspend returns
+# -EBUSY, and the suspend is aborted midway -- which is what wedges the cs35l56
+# speaker amps. See suspend.md.
+#
+# Installed as /etc/systemd/system-sleep/v4l2-relayd-release; systemd-sleep runs
+# it synchronously before the freeze, so the reference is gone by suspend time.
+set -u
+[ "${1:-}" = "pre" ] || exit 0
+
+PSYS=/sys/bus/auxiliary/devices/intel_ipu7.psys.40/power/runtime_usage
+[ -r "$PSYS" ] || exit 0
+[ "$(cat "$PSYS")" -gt 0 ] 2>/dev/null || exit 0
+
+# A client that still holds the loopback is streaming for real; leave it alone
+# and let the abort happen rather than yanking video out from under it.
+for fd in /proc/[0-9]*/fd/*; do
+    case "$(readlink "$fd" 2>/dev/null)" in
+        /dev/video0)
+            logger -t v4l2-relayd-release "psys pinned but /dev/video0 in use; not restarting"
+            exit 0 ;;
+    esac
+done
+
+logger -t v4l2-relayd-release "psys pinned with no camera client; restarting relayd"
+systemctl try-restart v4l2-relayd@default.service
+
+# try-restart returns once the job is done, but the driver drops the reference a
+# beat later. Don't enter the freeze until it has actually gone.
+i=0
+while [ "$i" -lt 50 ]; do
+    [ "$(cat "$PSYS" 2>/dev/null || echo 0)" -eq 0 ] && break
+    i=$((i + 1)); sleep 0.1
+done
+logger -t v4l2-relayd-release "psys runtime_usage now $(cat "$PSYS" 2>/dev/null)"
+exit 0
