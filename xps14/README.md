@@ -48,5 +48,6 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
 | [amp-rebind.sh](amp-rebind.sh) | recover the speaker amps from runtime-PM error without rebooting |
 | [kernel.md](kernel.md) | boot selection, module packaging, the 24.04 `7.0.0-31` regression |
 | [oem-stack.md](oem-stack.md) | Dell/OEM packages: what they do, what is removable |
+| [gnome.md](gnome.md) | desktop: themes, top-bar monitor, no dock |
 | [etc/](etc/) | the config files `setup.sh` installs |
 | [bug/](bug/) | the report filed as LP #2166612 |
