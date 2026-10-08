@@ -87,9 +87,10 @@ inst(){ # src dst label
         install -D -m0644 "$1" "$2"; CHANGED=1; ok "$3 written"
     else ok "$3 current"; fi
 }
-# 180-degree rotation, applied inside the HAL. Release upgrades REPLACE this
-# file without prompting, so re-check it after any v4l2-relayd update.
-inst etc/v4l2-relayd-default.conf   /etc/v4l2-relayd.d/default.conf      "camera flip"
+# relayd config. No flip: the 7.0.0-38 ov08x40 driver already outputs upright,
+# and flip-mode=vhflip turns it upside down. Release upgrades REPLACE this file
+# without prompting, so re-check it after any v4l2-relayd update.
+inst etc/v4l2-relayd-default.conf   /etc/v4l2-relayd.d/default.conf      "relayd config"
 # Module ordering: int3472 races the USBIO GPIO controller at boot.
 inst etc/modprobe.d-ipu7-order.conf /etc/modprobe.d/ipu7-order.conf      "module softdep"
 # oem-somerville-hypno-meta ships GRUB_FLAVOUR_ORDER=oem, which sorts *-oem
@@ -147,8 +148,9 @@ media-ctl -d /dev/media0 -p 2>/dev/null | grep -q ov08x40 && ok "sensor in media
     || no "sensor not bound (reboot?)"
 
 systemctl restart v4l2-relayd@default.service 2>/dev/null; sleep 3
-pgrep -af 'v4l2-relayd -i' | grep -q flip-mode && ok "relayd running with flip-mode" \
-    || no "relayd not running with flip-mode"
+pgrep -af 'v4l2-relayd -i' | grep -q flip-mode \
+    && no "relayd running with flip-mode (image upside down on 7.0.0-38+)" \
+    || ok "relayd running without flip-mode"
 
 cd /tmp && rm -f setupchk*.jpg
 timeout 30 gst-launch-1.0 -q v4l2src device=/dev/video0 num-buffers=20 ! videoconvert \

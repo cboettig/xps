@@ -14,8 +14,8 @@ to `lts` for the upgrade to be offered at all.
 1. **Have a backup.** A failed release upgrade can require a reinstall.
 
 2. **Snapshot the hand-edited config.** The upgrade replaces
-   `/etc/v4l2-relayd.d/default.conf` **without prompting**, silently dropping the camera
-   rotation fix. Copies live in [etc/](etc/); confirm they match your system first:
+   `/etc/v4l2-relayd.d/default.conf` **without prompting**, silently dropping any local
+   edits. Copies live in [etc/](etc/); confirm they match your system first:
 
    ```sh
    diff etc/v4l2-relayd-default.conf /etc/v4l2-relayd.d/default.conf
@@ -46,7 +46,8 @@ sudo ./setup.sh
 
 That handles everything the upgrade leaves wrong:
 
-- **Restores `flip-mode=vhflip`**, which the upgrade dropped.
+- **Restores the relayd config**, which the upgrade replaced. (It used to carry
+  `flip-mode=vhflip`; from kernel 7.0.0-38 no flip is needed. See [camera.md](camera.md#the-sensor-is-mounted-upside-down).)
 - **Purges the stale 24.04-built module packages.** The upgrade leaves both sets installed
   for the same kernel, and `depmod` searches `ubuntu/` before `ubuntu/dkms/`, so `modprobe`
   picks the 24.04 builds. They cannot load against a 26.04 kernel — identical `vermagic`,

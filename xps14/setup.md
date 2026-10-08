@@ -24,7 +24,7 @@ these notes and changes nothing.
 | Installs 5 module metapackages | `ipu7` (psys), `vision` (`intel_cvs`), `ipu6` (`ov08x40`), `usbio`, `v4l2loopback`. Miss any one and the camera fails in a different place. |
 | Installs `libcamhal-ipu75xa`, `gstreamer1.0-icamera`, `v4l2-relayd` | the userspace pipeline |
 | Installs `oem-somerville-hypno-meta` | vendor metapackage for this platform; also supplies the IPU7 firmware config |
-| Writes `/etc/v4l2-relayd.d/default.conf` | adds `flip-mode=vhflip` — the sensor is mounted upside down. See [camera.md](camera.md). |
+| Writes `/etc/v4l2-relayd.d/default.conf` | relayd source and format, with **no** flip. The sensor is mounted upside down, but the 7.0.0-38 driver already outputs upright. See [camera.md](camera.md#the-sensor-is-mounted-upside-down). |
 | Writes `/etc/modprobe.d/ipu7-order.conf` | softdep so `intel_ipu7` loads after the USBIO GPIO controller |
 | Writes `/etc/default/grub.d/zz-flavour-order.cfg` | the OEM meta sets `GRUB_FLAVOUR_ORDER=oem`, which sorts OEM kernels ahead of generic *regardless of version*. This overrides it back to generic. |
 | Sets `GRUB_DEFAULT=0` | with the above, "newest generic" |
