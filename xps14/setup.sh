@@ -124,11 +124,23 @@ systemctl is-enabled v4l2-relayd-kick.service >/dev/null 2>&1 \
 # leaves the cs35l56 amps in runtime-PM error. Release it before sleeping.
 # See suspend.md.
 say "Suspend hook"
-if [ ! -f /etc/systemd/system-sleep/v4l2-relayd-release ] \
-   || ! cmp -s etc/v4l2-relayd-release /etc/systemd/system-sleep/v4l2-relayd-release; then
-    install -D -m0755 etc/v4l2-relayd-release /etc/systemd/system-sleep/v4l2-relayd-release
-    CHANGED=1; ok "sleep hook written"
-else ok "sleep hook current"; fi
+# Run from a unit ordered Before=sleep.target, not /etc/systemd/system-sleep:
+# systemd-sleep only reads hooks from /usr/lib/systemd/system-sleep.
+if [ -e /etc/systemd/system-sleep/v4l2-relayd-release ]; then
+    rm -f /etc/systemd/system-sleep/v4l2-relayd-release
+    CHANGED=1; ok "removed the old never-run hook from /etc/systemd/system-sleep"
+fi
+if ! cmp -s etc/v4l2-relayd-release /usr/local/libexec/v4l2-relayd-release; then
+    install -D -m0755 etc/v4l2-relayd-release /usr/local/libexec/v4l2-relayd-release
+    CHANGED=1; ok "release script written"
+else ok "release script current"; fi
+if ! cmp -s etc/v4l2-relayd-release.service /etc/systemd/system/v4l2-relayd-release.service; then
+    install -D -m0644 etc/v4l2-relayd-release.service /etc/systemd/system/v4l2-relayd-release.service
+    systemctl daemon-reload
+    CHANGED=1; ok "release unit written"
+else ok "release unit current"; fi
+systemctl is-enabled v4l2-relayd-release.service >/dev/null 2>&1 \
+    || { systemctl enable v4l2-relayd-release.service >/dev/null 2>&1; CHANGED=1; ok "release unit enabled"; }
 
 if [ "$CHANGED" = 1 ]; then update-grub >/dev/null 2>&1; fi
 

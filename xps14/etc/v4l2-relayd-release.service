@@ -1,0 +1,12 @@
+[Unit]
+Description=Release the IPU7 reference v4l2-relayd leaks, before sleep
+Documentation=https://github.com/cboettig/xps/blob/master/xps14/suspend.md
+Before=sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/v4l2-relayd-release pre
+TimeoutStartSec=15
+
+[Install]
+WantedBy=sleep.target

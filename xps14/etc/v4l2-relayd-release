@@ -4,8 +4,11 @@
 # -EBUSY, and the suspend is aborted midway -- which is what wedges the cs35l56
 # speaker amps. See suspend.md.
 #
-# Installed as /etc/systemd/system-sleep/v4l2-relayd-release; systemd-sleep runs
-# it synchronously before the freeze, so the reference is gone by suspend time.
+# Installed as /usr/local/libexec/v4l2-relayd-release and run as
+# "v4l2-relayd-release pre" by v4l2-relayd-release.service, which is ordered
+# Before=sleep.target, so the reference is gone before systemd-sleep freezes
+# anything. (Not a system-sleep hook: systemd-sleep only reads those from
+# /usr/lib/systemd/system-sleep, and an /etc copy is silently never run.)
 set -u
 [ "${1:-}" = "pre" ] || exit 0
 
@@ -15,10 +18,15 @@ PSYS=/sys/bus/auxiliary/devices/intel_ipu7.psys.40/power/runtime_usage
 
 # A client that still holds the loopback is streaming for real; leave it alone
 # and let the abort happen rather than yanking video out from under it.
+# relayd itself writes to the loopback (/dev/video0, "Intel MIPI Camera"), so
+# its own descriptors don't count as a client.
+RELAYD=" $(pgrep -d ' ' -f '^/usr/bin/v4l2-relayd ') "
 for fd in /proc/[0-9]*/fd/*; do
     case "$(readlink "$fd" 2>/dev/null)" in
         /dev/video0)
-            logger -t v4l2-relayd-release "psys pinned but /dev/video0 in use; not restarting"
+            pid=${fd#/proc/}; pid=${pid%%/*}
+            case "$RELAYD" in *" $pid "*) continue ;; esac
+            logger -t v4l2-relayd-release "psys pinned but /dev/video0 held by $pid ($(cat /proc/$pid/comm 2>/dev/null)); not restarting"
             exit 0 ;;
     esac
 done

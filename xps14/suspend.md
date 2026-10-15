@@ -88,21 +88,46 @@ calibration; `amp-rebind.sh` checks bus status first and refuses otherwise.
 
 ## Prevention
 
-[etc/v4l2-relayd-release](etc/v4l2-relayd-release), installed by `setup.sh` as
-`/etc/systemd/system-sleep/v4l2-relayd-release`, runs before every suspend. If
-the psys reference is held but nothing has `/dev/video0` open — exactly the leak
-signature — it restarts relayd and waits for the reference to drop, so the
-suspend that follows is not aborted and the amps are never asked to resume out
-of order.
+[etc/v4l2-relayd-release](etc/v4l2-relayd-release) runs before every suspend.
+`setup.sh` installs it as `/usr/local/libexec/v4l2-relayd-release`, and it is
+started by [etc/v4l2-relayd-release.service](etc/v4l2-relayd-release.service), a
+oneshot unit `WantedBy=sleep.target` and ordered `Before=sleep.target`. If the
+psys reference is held but no camera client has `/dev/video0` open (exactly the
+leak signature), it restarts relayd and waits for the reference to drop. The
+suspend that follows is then not aborted, and the amps are never asked to resume
+out of order.
 
-It deliberately does nothing when a process *does* hold `/dev/video0`: that is a
+It deliberately does nothing when a client *does* hold `/dev/video0`. That is a
 real capture, and killing the pipeline under it is worse than a failed suspend.
+relayd's own descriptors don't count: it writes to the loopback, which is
+`/dev/video0` ("Intel MIPI Camera").
 
 ```console
 $ journalctl -t v4l2-relayd-release
 ... psys pinned with no camera client; restarting relayd
 ... psys runtime_usage now 0
 ```
+
+### Why a unit and not a system-sleep hook
+
+Until 2026-10-14 the script was installed as
+`/etc/systemd/system-sleep/v4l2-relayd-release`, and it never ran.
+`systemd-sleep` only reads hooks from `/usr/lib/systemd/system-sleep/`; that is
+the one hook directory compiled into the binary (systemd 259 here), and there is
+no `/etc` override:
+
+```console
+$ strings /usr/lib/systemd/systemd-sleep | grep system-sleep
+/usr/lib/systemd/system-sleep
+```
+
+`journalctl -t v4l2-relayd-release` had no entries in the three weeks after it
+was installed. On 2026-10-14 a stuck relayd (CamHAL `Poll: Device node fd 20
+poll timeout` on repeat after Zoom exited) aborted every suspend until relayd
+was restarted by hand. A unit in `/etc/systemd/system` avoids writing into a
+package-owned directory and logs to the journal under its own name. The old
+version would also have skipped the restart every time, because it counted
+relayd's own hold on `/dev/video0` as a client.
 
 ## Why the leak exists
 
