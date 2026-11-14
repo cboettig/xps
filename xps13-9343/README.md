@@ -62,6 +62,38 @@ RAM, priority 100) with `/swap.img` as overflow at priority -1:
 
 Check with `swapon --show`.
 
+## Disk health
+
+A baseline to compare against later, from `sudo smartctl -x /dev/sda` and a long self-test
+on 2026-11-14. Ubuntu 24.04's smartctl drive database predates this model, so most
+attributes show as `Unknown_Attribute` until `sudo update-smart-drivedb` is run. The
+names below are from the WD Blue/Green SSD entry in the current database.
+
+| ID | Attribute | Raw | |
+|---|---|---|---|
+| 241 | Host writes (GiB) | 1299 | about 2% of the ~80 TB rated endurance |
+| 242 | Host reads (GiB) | 1801 | |
+| 233 / 234 | NAND writes TLC / SLC (GiB) | 1467 / 1716 | write amplification about 1.13 |
+| 173 / 168 / 166 | P/E cycles average / max / min | 6 / 8 / 2 | |
+| 169 / 170 | Bad blocks total / grown | 297 / 0 | the 297 are from the factory; grown is the one to watch |
+| 171 / 172 | Program / erase failures | 0 / 0 | |
+| 5, 187, 188, 199 | Reallocated, uncorrectable, timeouts, CRC | 0 | |
+| 174 | Unexpected power loss | 3 | |
+| 194 | Temperature | 28 °C (min 12, max 54) | |
+| 9 | Power-on hours | 105 | counts only time awake, not wall-clock time |
+
+Short and extended self-tests both passed, and the error log is empty. Without root,
+UDisks reports the same data (it shows 241/242 in 32 MiB units):
+
+```sh
+gdbus call --system -d org.freedesktop.UDisks2 \
+  -o /org/freedesktop/UDisks2/drives/$(busctl --system tree org.freedesktop.UDisks2 | grep -o 'WD_Green[^ ]*' | head -1) \
+  -m org.freedesktop.UDisks2.Drive.Ata.SmartGetAttributes '{}'
+```
+
+A drive like this can still fail without warning, as the original did. Nothing on it
+lives only here except the config, and that is in git.
+
 ## Other system changes
 
 - Kernel parameters `i915.enable_psr=0 i915.enable_dc=0` in `/etc/default/grub`; see
