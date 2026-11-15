@@ -62,6 +62,34 @@ RAM, priority 100) with `/swap.img` as overflow at priority -1:
 
 Check with `swapon --show`.
 
+## Suspend
+
+On AC power the machine never suspends; on battery it suspends on lid close and, under
+GNOME, after 15 minutes idle. Sway's swayidle only locks and blanks the screens, so
+under Sway the only thing that ever suspends is systemd-logind reacting to the lid.
+
+By default `HandleLidSwitchExternalPower` inherits `HandleLidSwitch=suspend`. A lid
+closed with an external display attached counts as docked and is ignored, but logind
+rechecks, so the machine suspends as soon as that display drops out or the dock is
+unplugged, often long after the lid was closed. The fix is
+[etc/logind-lid-ac.conf](etc/logind-lid-ac.conf):
+
+```sh
+sudo install -Dm644 etc/logind-lid-ac.conf /etc/systemd/logind.conf.d/50-lid-ac.conf
+sudo systemctl reload systemd-logind
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 \
+  org.freedesktop.login1.Manager HandleLidSwitchExternalPower   # s "ignore"
+```
+
+The GNOME fallback session takes over the lid from logind, so it needs the matching
+setting (stored in dconf, which the `~/.config` repository does not track):
+
+```sh
+gsettings set org.gnome.settings-daemon.plugins.power lid-close-ac-action 'nothing'
+```
+
+GNOME's idle suspend on AC (`sleep-inactive-ac-type`) is already `'nothing'`.
+
 ## Disk health
 
 A baseline to compare against later, from `sudo smartctl -x /dev/sda` and a long self-test
