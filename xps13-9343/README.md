@@ -50,6 +50,23 @@ environment settings in `~/.config/environment.d/` matter:
 - `ssh-agent.conf`: points `SSH_AUTH_SOCK` at gcr's agent, with `gpg-agent-ssh.socket`
   masked in the user systemd, because gpg-agent cannot hold FIDO2 `sk-` keys.
 
+### Audio output
+
+Audio is PipeWire with WirePlumber. Kanshi runs `scripts/audio-default` on every
+profile change, so the default output follows the displays: HDMI audio when a monitor
+that can play sound is attached, the laptop speakers otherwise. To choose by hand,
+right-click the Waybar volume module. That opens `scripts/audio-menu`, a fuzzel list of
+the outputs with the current one marked. Picking one makes it the default and moves
+anything already playing onto it, since streams pinned to a device do not follow the
+default. The menu's last entry opens GNOME's Sound panel. Left-click mutes and scroll
+sets the volume.
+
+GNOME Settings refuses to start outside a GNOME session, so under Sway it has to be
+launched as `XDG_CURRENT_DESKTOP=GNOME gnome-control-center sound`. The Sound panel works
+there because it talks to PipeWire through its PulseAudio interface. From a terminal,
+`wpctl status` lists the outputs and `wpctl set-default <id>` switches; the ids change
+across reboots.
+
 ## Memory
 
 8 GB is the binding constraint, mostly because of Chrome. Swap is zram (zstd, half of
