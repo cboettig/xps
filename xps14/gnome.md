@@ -1,6 +1,7 @@
 # GNOME desktop
 
-Tweaks to the stock Ubuntu GNOME session, matching the old sway setup. The
+Tweaks to the stock Ubuntu GNOME session, matching the Sway setup (the daily
+desktop, see [sway.md](sway.md)). The
 theme switcher lives outside this repo at `~/.config/scripts/theme`.
 
 - **Themes:** `theme nord|mocha|latte|default`, and `theme follow on` to track

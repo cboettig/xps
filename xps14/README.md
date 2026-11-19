@@ -15,6 +15,7 @@ Configuration notes for the XPS 14, as distinct from the XPS 13 notes in the rep
 | Release upgrades | `Prompt=lts` — changed locally from the `never` Dell ships |
 | Kernel | **7.0.0-31-generic** (GRUB default via `GRUB_DEFAULT=0`) |
 | Camera | working — see [camera.md](camera.md) |
+| Desktop | Sway, from the shared `~/.config` — see [sway.md](sway.md) |
 | Suspend | works, with a pre-sleep unit — see [suspend.md](suspend.md) |
 | Hardware | intermittent embedded controller fault, Dell case open — see [hardware-fault.md](hardware-fault.md) |
 
@@ -51,6 +52,9 @@ particular (Intel IPU7) differs from the IPU6 generation in the XPS 13 notes.
 | [amp-rebind.sh](amp-rebind.sh) | recover the speaker amps from runtime-PM error without rebooting |
 | [kernel.md](kernel.md) | boot selection, module packaging, the 24.04 `7.0.0-31` regression |
 | [oem-stack.md](oem-stack.md) | Dell/OEM packages: what they do, what is removable |
-| [gnome.md](gnome.md) | desktop: themes, top-bar monitor, no dock |
+| [sway.md](sway.md) | desktop: the shared Sway config, minus the XPS 13 workarounds |
+| [gnome.md](gnome.md) | the GNOME session: themes, top-bar monitor, no dock |
+| [yubikey.md](yubikey.md) | fingerprint reader unsupported; YubiKey touch for sudo instead |
+| [yubikey-sudo.sh](yubikey-sudo.sh) | sets up (or `--remove`s) YubiKey touch for sudo |
 | [etc/](etc/) | the config files `setup.sh` installs |
 | [bug/](bug/) | the report filed as LP #2166612 |
